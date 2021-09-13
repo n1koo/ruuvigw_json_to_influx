@@ -51,50 +51,57 @@ def _get_data(endpoints: list, mappings: dict) -> dict:
     for endpoint in endpoints:
         try:
             response = requests.get(f"http://{endpoint}/history")
-            for tag in response.json()['data']['tags'].items():
-                mac = tag[0]
-                if mac in processed_macs:
-                    continue
-
-                processed_macs.append(mac)
-                if mac in mappings:
-                    tag_name = mappings[mac]
-                else:
-                    tag_name = mac.replace(":", "_")
-
-                time = datetime.datetime.utcfromtimestamp(int(tag[1]['timestamp'])).strftime('%Y-%m-%d %H:%M:%S')
-                log.debug(time)
-                tags = {"sensor_name": tag_name}
-
-                # Cut off until FF990405 and keep 05
-                sensor_data = get_decoder(5).decode_data(tag[1]['data'][14:])
-                log.debug(sensor_data)
-                fields = {}
-                fields['temperature'] = sensor_data['temperature'] if ('temperature' in sensor_data) else None
-                fields['humidity'] = sensor_data['humidity'] if ('humidity' in sensor_data) else None
-                fields['pressure'] = sensor_data['pressure'] if ('pressure' in sensor_data) else None
-                fields['accelerationX'] = sensor_data['acceleration_x'] if ('acceleration_x' in sensor_data) else None
-                fields['accelerationY'] = sensor_data['acceleration_y'] if ('acceleration_y' in sensor_data) else None
-                fields['accelerationZ'] = sensor_data['acceleration_z'] if ('acceleration_z' in sensor_data) else None
-                fields['batteryVoltage'] = sensor_data['battery']/1000.0 if ('battery' in sensor_data) else None
-                fields['txPower'] = sensor_data['tx_power'] if ('tx_power' in sensor_data) else None
-                fields['movementCounter'] = sensor_data['movement_counter'] if ('movement_counter' in sensor_data) else None
-                fields['measurementSequenceNumber'] = sensor_data['measurement_sequence_number'] if ('measurement_sequence_number' in sensor_data) else None
-                fields['rssi'] = tag[1]['rssi'] if ('rssi' in tag[1]) else None
-
-                measurement = {"measurement": 'sensor',
-                               "tags": tags,
-                               "time": time,
-                               "fields": fields}
-                measurements.append(measurement)
         # TODO: proper handling of issues
         except requests.exceptions.HTTPError as e:
             log.error(e)
         except requests.exceptions.ConnectionError as e:
             log.error(e)
 
+        for tag in response.json()['data']['tags'].items():
+            mac = tag[0]
+            if mac in processed_macs:
+                continue
+
+            processed_macs.append(mac)
+            measurements.append(_parse_measurument(tag, mappings))
+
     _ = json.JSONEncoder().encode(measurements)
     return measurements
+
+
+def _parse_measurument(tag, mappings) -> dict:
+    mac = tag[0]
+
+    if mac in mappings:
+        tag_name = mappings[mac]
+    else:
+        tag_name = mac.replace(":", "_")
+
+    time = datetime.datetime.utcfromtimestamp(int(tag[1]['timestamp'])).strftime('%Y-%m-%d %H:%M:%S')
+
+    tags = {"sensor_name": tag_name}
+
+    # Cut off until FF990405 and keep 05
+    sensor_data = get_decoder(5).decode_data(tag[1]['data'][14:])
+    log.debug(sensor_data)
+    fields = {}
+    fields['temperature'] = sensor_data['temperature'] if ('temperature' in sensor_data) else None
+    fields['humidity'] = sensor_data['humidity'] if ('humidity' in sensor_data) else None
+    fields['pressure'] = sensor_data['pressure'] if ('pressure' in sensor_data) else None
+    fields['accelerationX'] = sensor_data['acceleration_x'] if ('acceleration_x' in sensor_data) else None
+    fields['accelerationY'] = sensor_data['acceleration_y'] if ('acceleration_y' in sensor_data) else None
+    fields['accelerationZ'] = sensor_data['acceleration_z'] if ('acceleration_z' in sensor_data) else None
+    fields['batteryVoltage'] = sensor_data['battery']/1000.0 if ('battery' in sensor_data) else None
+    fields['txPower'] = sensor_data['tx_power'] if ('tx_power' in sensor_data) else None
+    fields['movementCounter'] = sensor_data['movement_counter'] if ('movement_counter' in sensor_data) else None
+    fields['measurementSequenceNumber'] = sensor_data['measurement_sequence_number'] if ('measurement_sequence_number' in sensor_data) else None
+    fields['rssi'] = tag[1]['rssi'] if ('rssi' in tag[1]) else None
+
+    measurement = {"measurement": 'sensor',
+                   "tags": tags,
+                   "time": time,
+                   "fields": fields}
+    return measurement
 
 
 def _read_mappings(mappings_file: str) -> dict:
