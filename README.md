@@ -1,8 +1,31 @@
 # Ruuvi GW to influx
 
-Scrappy script to pull data from Ruuvi gateways and dump it to influx
+Scrappy script to pull data from Ruuvi gateways and dump it to influx.
 
-See `run.sh` for now on required envvars to run
+Some features:
+
+- Able to map macs to names
+- Able to scrape N gateways
+- Able to dedupe duplicate sensors if found in multiple gateways
+- All data is outputted as fields per sensor
+
+
+
+**NOTICE**
+
+I'm yet to upgrade to InfluxDB 2.x - this script is only for 1.x
+
+## How to use
+
+See `run.sh` for now on required envvars to run.
+
+Basic flow is something like `python3 ruuvigw_json_to_influx.py --gateway_endpoints=192.168.20.40,192.168.20.69 --dry-run=true`
+
+### Mappings
+
+The script is able to map MACs to names. Please see `mappings.json` as an example. 
+
+If mapping is found `sensor_name` tag will be that name (eg. `autotalli`) but if not then `mac`
 
 ## Example run:
 
